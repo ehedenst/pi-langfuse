@@ -11,7 +11,7 @@ import { basename } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { state, resetRunState, runWithSession, setCurrentSession } from "./src/state.js";
-import { ensureConfig, promptForConfig, loadConfig } from "./src/config.js";
+import { ensureConfig, promptForConfig, loadConfig, partialCfAccessWarning } from "./src/config.js";
 import { shutdownRuntime } from "./src/langfuse.js";
 import { handleLangfusePrivacyCommand, handleLangfuseStatusCommand, handleLangfuseTestCommand } from "./src/commands.js";
 import { getMessageFromEvent, extractAssistantOutput, getCapturePolicy } from "./src/utils.js";
@@ -95,6 +95,10 @@ export default async function (pi: ExtensionAPI) {
 
   pi.on("session_start", async (_event, ctx) => withSession(ctx, async () => {
     state.setupAttemptedThisSession = false;
+    const cfAccessWarning = partialCfAccessWarning();
+    if (cfAccessWarning) {
+      console.warn(cfAccessWarning);
+    }
     await ensureConfig(ctx);
     resetRunState();
   }));

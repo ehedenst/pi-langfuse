@@ -88,6 +88,13 @@ Relevant implementation details:
 
 - `src/config.ts` loads saved config first, then env vars.
 - First-run setup is only attempted once per session via `state.setupAttemptedThisSession`.
+- `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` are independent of Langfuse credentials and are read
+  from the environment only, never from `config.json`. `cfAccessHeaders()` is pure and is called on every
+  outbound request (`ingestionHeaders()` in `src/langfuse.ts`, the connectivity check in `src/commands.ts`,
+  and the `LangfuseSpanProcessor` / `LangfuseClient` constructors). A half-set token is dropped rather than
+  sent, because Cloudflare answers it with an opaque 403 that mimics a Langfuse credential failure;
+  `partialCfAccessWarning()` reports the drop once per session from the `session_start` hook in `index.ts`.
+  New outbound calls to the Langfuse host must include these headers or they break tunnelled deployments.
 - Manual `/langfuse-setup` clears cached config and shuts down the runtime before reconfiguring.
 - Absolute-path hashing (`[PATH_HASH:...]`) is governed by `CapturePolicy.capturePaths`
   (`LANGFUSE_CAPTURE_PATHS`). Like `captureSourceMetadata` it is `false` in every preset and is

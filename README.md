@@ -77,6 +77,18 @@ export LANGFUSE_BASE_URL="https://cloud.langfuse.com"  # optional; LANGFUSE_HOST
 
 Saved config takes precedence. Environment variables are only used when `~/.pi/agent/pi-langfuse/config.json` is missing or incomplete.
 
+If your self-hosted Langfuse sits behind a Cloudflare Access tunnel, add a service token:
+
+```bash
+export CF_ACCESS_CLIENT_ID="xxxx.access"
+export CF_ACCESS_CLIENT_SECRET="xxxx"
+```
+
+Both are required. The extension sends them as `CF-Access-Client-Id` / `CF-Access-Client-Secret` on every
+request to Langfuse (span export, score delivery, REST fallback, and `/langfuse-status` connectivity checks).
+Setting only one is ignored with a warning at session start, because half a service token earns an opaque
+Cloudflare 403 that looks like a Langfuse credential failure.
+
 For short-lived SDK hosts, set the bounded final score-delivery attempt during shutdown:
 
 ```bash

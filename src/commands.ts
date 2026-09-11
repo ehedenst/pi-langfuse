@@ -8,6 +8,7 @@ import {
   sanitizeConfigForLog,
   saveConfig,
   ensureConfig,
+  cfAccessHeaders,
 } from "./config.js";
 import { createCapturePolicy, type PrivacyPreset, type CapturePolicy } from "./capture-policy.js";
 import { getRuntime, getLastRuntimeError, forceShutdownRuntime as shutdownLangfuseRuntime } from "./langfuse.js";
@@ -233,6 +234,7 @@ async function checkLangfuseConnectivity(config: Config): Promise<ConnectivityRe
     const response = await fetch(`${host}/api/public/projects`, {
       headers: {
         Authorization: `Basic ${auth}`,
+        ...cfAccessHeaders(),
       },
       signal: AbortSignal.timeout(10_000),
     });

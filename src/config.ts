@@ -57,6 +57,43 @@ export function loadConfig(env: EnvLike = process.env as EnvLike, path = CONFIG_
   return loadConfigFromFile(path, env) || loadConfigFromEnv(env);
 }
 
+/**
+ * Cloudflare Access service-token headers for authenticated tunnels in front of
+ * self-hosted Langfuse. Both vars are required: sending half a service token
+ * earns an opaque Cloudflare 403 that reads like a Langfuse credential failure,
+ * so a partial token is dropped. This runs on every outbound request, so it stays
+ * pure; `partialCfAccessWarning()` reports the drop once per session instead.
+ */
+export function cfAccessHeaders(env: EnvLike = process.env as EnvLike): Record<string, string> {
+  const clientId = env.CF_ACCESS_CLIENT_ID?.trim();
+  const clientSecret = env.CF_ACCESS_CLIENT_SECRET?.trim();
+
+  if (!clientId || !clientSecret) {
+    return {};
+  }
+
+  return {
+    "CF-Access-Client-Id": clientId,
+    "CF-Access-Client-Secret": clientSecret,
+  };
+}
+
+/** Message for a half-configured Cloudflare Access service token, or null when there is nothing to report. */
+export function partialCfAccessWarning(env: EnvLike = process.env as EnvLike): string | null {
+  const clientId = env.CF_ACCESS_CLIENT_ID?.trim();
+  const clientSecret = env.CF_ACCESS_CLIENT_SECRET?.trim();
+
+  if (!clientId && !clientSecret) {
+    return null;
+  }
+  if (clientId && clientSecret) {
+    return null;
+  }
+
+  const missing = clientId ? "CF_ACCESS_CLIENT_SECRET" : "CF_ACCESS_CLIENT_ID";
+  return `📊 Langfuse: Ignoring Cloudflare Access service token, ${missing} is not set. Set both CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET to authenticate through the tunnel.`;
+}
+
 export function saveConfig(config: Config, path = CONFIG_PATH) {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   chmodSync(dirname(path), 0o700);

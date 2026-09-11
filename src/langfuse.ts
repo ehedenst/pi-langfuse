@@ -1,6 +1,7 @@
 import type { LangfuseRuntime, LangfuseScoreClient, PendingScore } from "./types.js";
 import { state } from "./state.js";
 import { randomUUID } from "node:crypto";
+import { cfAccessHeaders } from "./config.js";
 
 let runtime: LangfuseRuntime | null = null;
 let registeredContextManager: OtelContextManager | null = null;
@@ -239,6 +240,7 @@ function ingestionHeaders(rt: LangfuseRuntime): Record<string, string> {
   return {
     Authorization: `Basic ${auth}`,
     "Content-Type": "application/json",
+    ...cfAccessHeaders(),
   };
 }
 
@@ -864,6 +866,7 @@ export async function getRuntime(): Promise<LangfuseRuntime> {
         publicKey: state.config.publicKey,
         secretKey: state.config.secretKey,
         baseUrl: state.config.host,
+        additionalHeaders: cfAccessHeaders(),
       });
       const resource = resources.defaultResource().merge(
         resources.detectResources({ detectors: [resources.envDetector] }),
@@ -882,6 +885,7 @@ export async function getRuntime(): Promise<LangfuseRuntime> {
           publicKey: state.config.publicKey,
           secretKey: state.config.secretKey,
           baseUrl: state.config.host,
+          additionalHeaders: cfAccessHeaders(),
         }) as LangfuseScoreClient,
         spanProcessor,
         tracerProvider,

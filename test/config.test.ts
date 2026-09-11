@@ -4,7 +4,13 @@ import { mkdtempSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { loadConfigFromFile, saveConfig, sanitizeConfigForLog } from "../src/config.ts";
+import {
+  loadConfigFromFile,
+  saveConfig,
+  sanitizeConfigForLog,
+  cfAccessHeaders,
+  partialCfAccessWarning,
+} from "../src/config.ts";
 
 test("env privacy flags override saved config capture policy", () => {
   const dir = mkdtempSync(join(tmpdir(), "pi-langfuse-config-"));
@@ -76,4 +82,29 @@ test("saved config is private and sanitized config does not reveal secret key", 
   });
   assert.equal(sanitized?.secretKey, "[REDACTED_SECRET]");
   assert.equal(sanitized?.publicKey, "pk-lf-...cdef");
+});
+
+test("cfAccessHeaders sends the service token only when both halves are set", () => {
+  assert.deepEqual(
+    cfAccessHeaders({ CF_ACCESS_CLIENT_ID: " id ", CF_ACCESS_CLIENT_SECRET: "secret" }),
+    { "CF-Access-Client-Id": "id", "CF-Access-Client-Secret": "secret" },
+  );
+  assert.deepEqual(cfAccessHeaders({}), {});
+
+  // A half token earns an opaque Cloudflare 403, so drop it rather than send it.
+  assert.deepEqual(cfAccessHeaders({ CF_ACCESS_CLIENT_ID: "id" }), {});
+  assert.deepEqual(cfAccessHeaders({ CF_ACCESS_CLIENT_SECRET: "secret" }), {});
+  assert.deepEqual(cfAccessHeaders({ CF_ACCESS_CLIENT_ID: "id", CF_ACCESS_CLIENT_SECRET: "  " }), {});
+});
+
+test("partialCfAccessWarning names the missing half and stays quiet otherwise", () => {
+  assert.match(partialCfAccessWarning({ CF_ACCESS_CLIENT_ID: "id" }) ?? "", /CF_ACCESS_CLIENT_SECRET is not set/);
+  assert.match(partialCfAccessWarning({ CF_ACCESS_CLIENT_SECRET: "secret" }) ?? "", /CF_ACCESS_CLIENT_ID is not set/);
+  assert.match(
+    partialCfAccessWarning({ CF_ACCESS_CLIENT_ID: "id", CF_ACCESS_CLIENT_SECRET: "  " }) ?? "",
+    /CF_ACCESS_CLIENT_SECRET is not set/,
+  );
+
+  assert.equal(partialCfAccessWarning({}), null);
+  assert.equal(partialCfAccessWarning({ CF_ACCESS_CLIENT_ID: "id", CF_ACCESS_CLIENT_SECRET: "secret" }), null);
 });

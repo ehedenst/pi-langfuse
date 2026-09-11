@@ -12,6 +12,7 @@ declare module "@langfuse/otel" {
       publicKey: string;
       secretKey: string;
       baseUrl: string;
+      additionalHeaders?: Record<string, string>;
     });
     forceFlush?(): Promise<void>;
     shutdown?(): Promise<void>;
@@ -44,6 +45,7 @@ declare module "@langfuse/client" {
       publicKey: string;
       secretKey: string;
       baseUrl: string;
+      additionalHeaders?: Record<string, string>;
     });
   }
 }

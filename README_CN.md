@@ -77,6 +77,17 @@ export LANGFUSE_BASE_URL="https://cloud.langfuse.com"  # 可选；也支持 LANG
 
 保存的配置优先级更高。只有当 `~/.pi/agent/pi-langfuse/config.json` 缺失或不完整时，扩展才会使用环境变量。
 
+如果自托管的 Langfuse 位于 Cloudflare Access 隧道之后，可以配置 service token：
+
+```bash
+export CF_ACCESS_CLIENT_ID="xxxx.access"
+export CF_ACCESS_CLIENT_SECRET="xxxx"
+```
+
+两者都必须设置。扩展会在每个发往 Langfuse 的请求上附带 `CF-Access-Client-Id` / `CF-Access-Client-Secret`
+（span 导出、分数发送、REST 回退，以及 `/langfuse-status` 的连通性检查）。只设置其中一个会被忽略，并在会话开始时
+发出警告：不完整的 service token 只会换来 Cloudflare 返回的模糊 403，看起来像是 Langfuse 凭据错误。
+
 对于短生命周期的 SDK 宿主，可设置关闭时最终分数发送尝试的上限：
 
 ```bash
