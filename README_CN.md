@@ -34,6 +34,7 @@
    - Langfuse 公钥，以 `pk-lf-...` 开头
    - Langfuse 密钥，以 `sk-lf-...` 开头
    - Langfuse 主机地址，默认 `https://cloud.langfuse.com`
+   - 可选的 Langfuse 用户 ID，用于按用户汇总用量和成本
 
 3. 正常运行 Pi：
 
@@ -63,7 +64,7 @@ Langfuse API 密钥可在 **Langfuse Cloud** -> **Settings** -> **API Keys** 中
 /langfuse-status
 ```
 
-状态命令会显示配置来源、主机地址、脱敏后的公钥、采集策略、是否有活跃运行、配置文件路径，以及最近一次运行时错误。
+状态命令会显示配置来源、主机地址、脱敏后的公钥、是否已配置用户 ID、采集策略、是否有活跃运行、配置文件路径，以及最近一次运行时错误，但不会输出用户 ID 本身。
 
 ### 方式 2：环境变量
 
@@ -73,9 +74,11 @@ Langfuse API 密钥可在 **Langfuse Cloud** -> **Settings** -> **API Keys** 中
 export LANGFUSE_PUBLIC_KEY="pk-lf-xxxx"
 export LANGFUSE_SECRET_KEY="sk-lf-xxxx"
 export LANGFUSE_BASE_URL="https://cloud.langfuse.com"  # 可选；也支持 LANGFUSE_HOST
+export LANGFUSE_USER_ID="user-123"                     # 可选；最长 200 个字符
 ```
 
 保存的配置优先级更高。只有当 `~/.pi/agent/pi-langfuse/config.json` 缺失或不完整时，扩展才会使用环境变量。
+如果已保存凭据但没有 `userId`，仍会读取 `LANGFUSE_USER_ID`；显式保存的 `userId` 优先级更高。
 
 如果自托管的 Langfuse 位于 Cloudflare Access 隧道之后，可以配置 service token：
 
@@ -214,9 +217,12 @@ export PI_LANGFUSE_SPLIT_REASONING_TOKENS=true
   "publicKey": "pk-lf-xxxx",
   "secretKey": "sk-lf-xxxx",
   "host": "https://cloud.langfuse.com",
+  "userId": "user-123",
   "privacyPreset": "conversations"
 }
 ```
+
+`userId` 是可选的显式配置，最长 200 个字符。扩展不会从本机操作系统账户推断该值。配置后，它会传播到 trace 中的每个 observation，以支持 Langfuse 按用户筛选并汇总成本。
 
 也可以持久化细粒度采集开关：
 
@@ -261,6 +267,12 @@ pi list
 - 工具执行会以工具观察节点展示参数、结果和错误状态。
 - 模型请求会以生成观察节点展示；如果提供商暴露相关信息，还会包含用量和成本。
   开启 `PI_LANGFUSE_SPLIT_REASONING_TOKENS` 后，推理 token 会作为独立用量桶上报。
+- Pi 0.86 的 transcript-aware system/tool 状态会作为 `system-state` 事件上报；generation 会引用有效的
+  prompt/tool 状态指纹、活动工具数、更新传输方式和缓存命中率。
+- 自动重试会归入 `agent-attempt` span，trace 会持续到 `agent_settled` 才结束。
+- cache warming 决策及持久化的 `cache_warm` 用量会被记录；若 warming 发生时没有活动的用户请求 trace，
+  会创建按相同 session 分组的独立 trace。
+- compaction 会记录为 `session-compaction`；若存在摘要用量，则包含 `compaction-summary` generation。
 - trace 级别会记录工具调用次数、工具成功率和是否出现错误。
 
 此包还包含一个内置 Langfuse 技能，可直接在 Pi 中查询 Langfuse 数据：

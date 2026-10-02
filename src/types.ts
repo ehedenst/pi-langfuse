@@ -6,6 +6,7 @@ export interface Config {
   publicKey: string;
   secretKey: string;
   host: string;
+  userId?: string;
   capturePolicy?: CapturePolicy;
   limits?: PayloadLimits;
   usage?: UsageOptions;
@@ -19,7 +20,7 @@ export interface LangfuseObservation {
   startObservation?(
     name: string,
     body?: ObservationUpdate,
-    options?: { asType?: "agent" | "generation" | "tool" | "span" },
+    options?: { asType?: "agent" | "event" | "generation" | "tool" | "span" },
   ): LangfuseObservation;
   setTraceIO?(body?: { input?: unknown; output?: unknown }): void;
 }
@@ -82,7 +83,7 @@ export interface LangfuseRuntime {
   startObservation: (
     name: string,
     body?: ObservationUpdate,
-    options?: { asType?: "agent" | "generation" | "tool" | "span" },
+    options?: { asType?: "agent" | "event" | "generation" | "tool" | "span" },
   ) => LangfuseObservation;
   propagateAttributes: (
     params: {
@@ -136,6 +137,7 @@ export interface ToolState {
 
 export interface AgentState {
   root?: LangfuseObservation;
+  activeAttempt?: LangfuseObservation;
   activeTurn?: LangfuseObservation;
   traceId?: string;
   promptInput?: unknown;
@@ -147,4 +149,14 @@ export interface AgentState {
   latestAssistantOutput?: unknown;
   sourceMetadata?: Record<string, unknown>;
   providerMetadataByRequest: Map<string, Record<string, unknown>>;
+  attemptCount: number;
+  lastAgentEndEvent?: Record<string, unknown>;
+  promptStateHash?: string;
+  toolStateHash?: string;
+  systemStateSequence?: number;
+  activeToolCount?: number;
+  systemStateChangeCount: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  uncachedInputTokens: number;
 }
