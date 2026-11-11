@@ -11,6 +11,7 @@ import { basename } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { state, resetRunState, runWithSession, setCurrentSession } from "./src/state.js";
+import { bindSessionLineage } from "./src/session-lineage.js";
 import { ensureConfig, promptForConfig, loadConfig, partialCfAccessWarning } from "./src/config.js";
 import { shutdownRuntime } from "./src/langfuse.js";
 import { handleLangfusePrivacyCommand, handleLangfuseStatusCommand, handleLangfuseTestCommand } from "./src/commands.js";
@@ -30,13 +31,14 @@ import {
   recordCacheWarmingDecision,
   recordNewUsageEntries,
 } from "./src/handlers/cache.js";
-import { recordSessionCompaction } from "./src/handlers/session.js";
+import { recordSessionCompaction, recordSessionCompactionFailure } from "./src/handlers/session.js";
 import {
   startGeneration,
   updateGenerationMetadata,
   finishGenerationFromMessage,
   createFallbackGenerationFromTurn,
   recordTTFT,
+  recordGenerationIdentity,
 } from "./src/handlers/generation.js";
 import {
   startToolObservation,
@@ -114,6 +116,7 @@ export default async function (pi: ExtensionAPI) {
     }
     await ensureConfig(ctx);
     resetRunState();
+    bindSessionLineage(ctx?.sessionManager);
     initializeSystemStateTracking(ctx);
     initializeUsageTracking(ctx);
   }));
@@ -149,11 +152,16 @@ export default async function (pi: ExtensionAPI) {
   }));
 
   pi.on("before_provider_request", async (event, ctx) => withSession(ctx, async () => {
-    await startGeneration(asRecord(event));
+    await recordSystemState(ctx, pi.getActiveTools(), false);
+    await startGeneration(asRecord(event), ctx.model);
   }));
 
   pi.on("after_provider_response", async (event, ctx) => withSession(ctx, async () => {
     updateGenerationMetadata(asRecord(event));
+  }));
+
+  pi.on("provider_stream_event", (event, ctx) => withSession(ctx, () => {
+    recordGenerationIdentity(asRecord(event));
   }));
 
   pi.on("message_update", async (event, ctx) => withSession(ctx, async () => {
@@ -223,6 +231,10 @@ export default async function (pi: ExtensionAPI) {
 
   pi.on("session_compact", async (event, ctx) => withSession(ctx, async () => {
     await recordSessionCompaction(asRecord(event));
+  }));
+
+  pi.on("session_compact_failed", async (event, ctx) => withSession(ctx, async () => {
+    await recordSessionCompactionFailure(asRecord(event));
   }));
 
   pi.on("session_shutdown", async (_event, ctx) => withSession(ctx, async () => {
